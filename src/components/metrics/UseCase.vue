@@ -67,12 +67,6 @@
           </template>
         </el-upload>
 
-        <div class="project-name-input" style="margin-bottom: 20px;">
-          <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
-            <template #prepend>项目名称</template>
-          </el-input>
-        </div>
-
         <div class="upload-actions">
           <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
           <el-button v-if="fileList.length" @click="clearFile">清除</el-button>

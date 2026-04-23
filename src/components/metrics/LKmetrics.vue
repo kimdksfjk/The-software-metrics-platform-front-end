@@ -164,11 +164,11 @@
           </el-table-column>
           <el-table-column prop="noo" label="重写方法 (NOO)" width="120" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.noo, 5)" size="small">{{ row.noo
-            }}</el-tag></template>
+                }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="noa" label="新增方法 (NOA)" width="120" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.noa, 8)" size="small">{{ row.noa
-            }}</el-tag></template>
+                }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="si" label="特化指数 (SI)" width="120" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.si, 0.5, true)" size="small">{{

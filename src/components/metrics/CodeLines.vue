@@ -17,7 +17,11 @@
             </el-icon>
           </template>
         </el-empty>
-
+        <div class="project-name-input" style="margin-bottom: 20px;">
+          <el-input v-model="projectName" placeholder="请输入项目名称 (必填)" clearable>
+            <template #prepend>项目名称</template>
+          </el-input>
+        </div>
         <el-upload ref="uploadRef" drag multiple :auto-upload="false" :on-change="handleFileChange"
           :on-remove="handleFileRemove" :file-list="fileList" action="#" class="upload-area">
           <el-icon class="upload-icon">
@@ -33,11 +37,6 @@
           </template>
         </el-upload>
 
-        <div class="project-name-input" style="margin-bottom: 20px;">
-          <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
-            <template #prepend>项目名称</template>
-          </el-input>
-        </div>
 
         <div class="upload-actions">
           <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
@@ -59,7 +58,6 @@
         </div>
         <div class="header-actions">
           <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
-          <el-button type="warning" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="primary" @click="exportResults" :icon="Download">导出数据</el-button>
         </div>
@@ -161,7 +159,7 @@
               <el-tag type="info" size="small">{{ row.blankLines }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="总行数" width="100" sortable>
+          <el-table-column label="总行数" width="100" sortable :sort-method="sortTotalLines">
             <template #default="{ row }">
               <el-tag type="primary" size="small">{{ row.codeLines + row.commentLines + row.blankLines }}</el-tag>
             </template>
@@ -255,6 +253,10 @@ const clearFiles = () => {
 
 // Upload files to server
 const uploadFiles = async () => {
+  if (!projectName.value) {
+    ElMessage.warning('请输入项目名称');
+    return;
+  }
   if (!selectedFiles.value.length) {
     ElMessage.warning('请选择要上传的文件');
     return;
@@ -280,30 +282,46 @@ const uploadFiles = async () => {
     const response = await new Promise((resolve, reject) => {
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch (e) {
+            reject(new Error('解析响应失败'));
+          }
         } else {
-          reject(new Error('Upload failed'));
+          reject(new Error('分析请求失败: ' + xhr.status));
         }
       };
-      xhr.onerror = () => reject(new Error('Network error'));
-      xhr.open('POST', `http://127.0.0.1:8080/countCode${projectName.value ? `?projectName=${projectName.value}` : ''}`);
+      xhr.onerror = () => reject(new Error('网络连接错误'));
+      xhr.open('POST', `http://127.0.0.1:8080/countCode?projectName=${encodeURIComponent(projectName.value)}`);
       xhr.send(formData);
     });
 
-    results.value = response;
-    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
+    // 处理可能的包装格式
+    if (Array.isArray(response)) {
+      results.value = response;
+    } else if (response.data && Array.isArray(response.data)) {
+      results.value = response.data;
+    } else if (response.results && Array.isArray(response.results)) {
+      results.value = response.results;
+    } else {
+      throw new Error('返回数据格式不正确');
+    }
+
+    ElMessage.success('分析完成，记录已自动保存');
 
     setTimeout(() => {
       createCompositionChart();
       createTopFilesChart();
     }, 100);
 
+    // 只有成功才清空文件列表
+    clearFiles();
+
   } catch (error) {
     console.error('Error uploading files:', error);
-    ElMessage.error('文件上传失败: ' + error.message);
+    ElMessage.error('分析失败: ' + error.message);
   } finally {
     loading.value = false;
-    clearFiles();
   }
 };
 
@@ -311,41 +329,6 @@ const uploadFiles = async () => {
 const historyDialogRef = ref(null);
 const openHistory = () => {
   historyDialogRef.value.open();
-};
-
-const saveToHistory = async () => {
-  if (!results.value.length) {
-    ElMessage.warning('没有可保存的数据');
-    return;
-  }
-
-  if (!projectName.value) {
-    try {
-      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPattern: /\S+/,
-        inputErrorMessage: '项目名称不能为空'
-      });
-      projectName.value = value;
-    } catch (error) {
-      return;
-    }
-  }
-
-  try {
-    const response = await historyApi.saveHistory({
-      projectName: projectName.value,
-      metricType: 'LOC',
-      data: { results: results.value }
-    });
-    if (response.data.success) {
-      ElMessage.success('历史记录保存成功');
-    }
-  } catch (error) {
-    console.error('保存失败:', error);
-    ElMessage.error('保存历史记录失败');
-  }
 };
 
 const loadHistoryData = (historyData) => {
@@ -410,6 +393,12 @@ const getFileIconColor = (fileName) => {
 const getCodePercentage = (file) => {
   const total = file.codeLines + file.commentLines + file.blankLines;
   return total ? Math.round((file.codeLines / total) * 100) : 0;
+};
+
+const sortTotalLines = (a, b) => {
+  const totalA = a.codeLines + a.commentLines + a.blankLines;
+  const totalB = b.codeLines + b.commentLines + b.blankLines;
+  return totalA - totalB;
 };
 
 // Create composition chart
