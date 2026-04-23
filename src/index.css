@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer components {
+  .metrics-card {
+    @apply bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow;
+  }
+  .metrics-title {
+    @apply text-lg font-semibold text-gray-800 mb-2;
+  }
+  .metrics-value {
+    @apply text-2xl font-bold text-primary;
+  }
+}
+
+html, body {
+  @apply bg-light-bg;
+}
