@@ -19,6 +19,11 @@
         </el-empty>
 
         <div class="upload-area">
+          <div class="project-name-input" style="margin-bottom: 20px;">
+            <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
+              <template #prepend>项目名称</template>
+            </el-input>
+          </div>
           <el-upload ref="uploadRef" drag :auto-upload="false" :on-change="onFileSelected" :file-list="fileList"
             accept=".xml" :limit="1">
             <el-icon class="upload-icon">
@@ -31,9 +36,10 @@
           </el-upload>
         </div>
 
-        <div class="upload-actions" v-if="fileList.length">
-          <el-button @click="clearFile">清除</el-button>
-          <el-button type="success" @click="analyzeFile" :loading="loading">
+        <div class="upload-actions">
+          <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
+          <el-button v-if="fileList.length" @click="clearFile">清除</el-button>
+          <el-button v-if="fileList.length" type="success" @click="analyzeFile" :loading="loading">
             开始分析
           </el-button>
         </div>
@@ -46,9 +52,11 @@
       <div class="results-header">
         <div class="header-info">
           <h2>CK 指标分析报告</h2>
-          <p>分析了 {{ ckData.length }} 个类</p>
+          <p>项目: {{ projectName || '未命名项目' }} | 分析了 {{ ckData.length }} 个类</p>
         </div>
         <div class="header-actions">
+          <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
+          <el-button type="primary" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="success" @click="exportData" :icon="Download">导出数据</el-button>
         </div>
@@ -230,17 +238,23 @@
         <p>正在分析 CK 指标，请稍候...</p>
       </div>
     </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <HistoryDialog ref="historyDialogRef" metric-type="CK" @select="loadHistoryData" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Upload, Grid, ArrowLeft, Download, Search, Loading, Warning, CircleCheck } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Upload, Grid, ArrowLeft, Download, Search, Loading, Warning, CircleCheck, Clock } from '@element-plus/icons-vue';
 import Chart from 'chart.js/auto';
 import axios from 'axios';
+import { historyApi } from '../../api/history';
+import HistoryDialog from '../history/HistoryDialog.vue';
 
 // 状态变量
+const projectName = ref('');
 const fileName = ref('');
 const fileData = ref('');
 const loading = ref(false);
@@ -310,19 +324,71 @@ const analyzeFile = async () => {
 
   try {
     const response = await axios({
-      url: "http://127.0.0.1:8080/CKMetrics",
+      url: `http://127.0.0.1:8080/CKMetrics${projectName.value ? `?projectName=${projectName.value}` : ''}`,
       method: 'post',
       data: fileData.value,
       headers: { 'Content-Type': 'application/xml' }
     });
 
     processResponse(response.data);
-    ElMessage.success('分析完成');
+    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
   } catch (error) {
     console.error('Error:', error);
     ElMessage.error('分析过程中出错: ' + (error.message || '未知错误'));
   } finally {
     loading.value = false;
+  }
+};
+
+// 历史记录相关
+const historyDialogRef = ref(null);
+const openHistory = () => {
+  historyDialogRef.value.open();
+};
+
+const saveToHistory = async () => {
+  if (!ckData.value.length) {
+    ElMessage.warning('没有可保存的数据');
+    return;
+  }
+
+  if (!projectName.value) {
+    try {
+      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '项目名称不能为空'
+      });
+      projectName.value = value;
+    } catch (error) {
+      return;
+    }
+  }
+
+  try {
+    const response = await historyApi.saveHistory({
+      projectName: projectName.value,
+      metricType: 'CK',
+      data: { results: ckData.value }
+    });
+    if (response.data.success) {
+      ElMessage.success('历史记录保存成功');
+    }
+  } catch (error) {
+    console.error('保存失败:', error);
+    ElMessage.error('保存历史记录失败');
+  }
+};
+
+const loadHistoryData = (historyData) => {
+  if (historyData && historyData.results) {
+    ckData.value = historyData.results;
+    setTimeout(() => {
+      createMainChart();
+      createRadarChart();
+      createQualityChart();
+    }, 100);
   }
 };
 

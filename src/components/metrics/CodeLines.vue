@@ -1,12 +1,7 @@
 <template>
   <div class="code-lines-container">
     <!-- 说明卡片 -->
-    <el-alert
-      title="代码行度量分析"
-      type="info"
-      :closable="false"
-      class="info-alert"
-    >
+    <el-alert title="代码行度量分析" type="info" :closable="false" class="info-alert">
       <template #default>
         <p>代码行度量统计源代码的物理行数、逻辑行数、注释行数等，评估项目规模和代码质量。上传源代码文件，系统将自动进行统计分析。</p>
       </template>
@@ -17,22 +12,17 @@
       <div class="upload-content">
         <el-empty description="上传源代码文件" :image-size="80">
           <template #image>
-            <el-icon :size="60" color="#409EFF"><UploadFilled /></el-icon>
+            <el-icon :size="60" color="#409EFF">
+              <UploadFilled />
+            </el-icon>
           </template>
         </el-empty>
-        
-        <el-upload
-          ref="uploadRef"
-          drag
-          multiple
-          :auto-upload="false"
-          :on-change="handleFileChange"
-          :on-remove="handleFileRemove"
-          :file-list="fileList"
-          action="#"
-          class="upload-area"
-        >
-          <el-icon class="upload-icon"><Upload /></el-icon>
+
+        <el-upload ref="uploadRef" drag multiple :auto-upload="false" :on-change="handleFileChange"
+          :on-remove="handleFileRemove" :file-list="fileList" action="#" class="upload-area">
+          <el-icon class="upload-icon">
+            <Upload />
+          </el-icon>
           <div class="upload-text">
             将文件拖到此处，或<em>点击上传</em>
           </div>
@@ -42,30 +32,39 @@
             </div>
           </template>
         </el-upload>
-        
-        <div class="upload-actions" v-if="fileList.length">
-          <el-button @click="clearFiles">清除</el-button>
-          <el-button type="primary" @click="uploadFiles" :loading="loading">
+
+        <div class="project-name-input" style="margin-bottom: 20px;">
+          <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
+            <template #prepend>项目名称</template>
+          </el-input>
+        </div>
+
+        <div class="upload-actions">
+          <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
+          <el-button v-if="fileList.length" @click="clearFiles">清除</el-button>
+          <el-button v-if="fileList.length" type="primary" @click="uploadFiles" :loading="loading">
             开始分析
           </el-button>
         </div>
       </div>
     </el-card>
-    
+
     <!-- 分析结果 -->
     <div v-if="results.length" class="results-container">
       <!-- 结果头部 -->
       <div class="results-header">
         <div class="header-info">
           <h2>代码行分析结果</h2>
-          <p>分析了 {{ results.length }} 个文件，共 {{ totalCodeLines }} 行代码</p>
+          <p>项目: {{ projectName || '未命名项目' }} | 分析了 {{ results.length }} 个文件，共 {{ totalCodeLines }} 行代码</p>
         </div>
         <div class="header-actions">
+          <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
+          <el-button type="warning" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="primary" @click="exportResults" :icon="Download">导出数据</el-button>
         </div>
       </div>
-      
+
       <!-- 统计卡片 -->
       <el-row :gutter="20" class="stats-row">
         <el-col :span="6" v-for="stat in statsCards" :key="stat.key">
@@ -85,7 +84,7 @@
           </el-card>
         </el-col>
       </el-row>
-      
+
       <!-- 图表区域 -->
       <el-row :gutter="20" class="charts-row">
         <el-col :span="12">
@@ -96,7 +95,7 @@
             <div ref="compositionChartContainer" class="chart-container"></div>
           </el-card>
         </el-col>
-        
+
         <el-col :span="12">
           <el-card shadow="hover" class="chart-card">
             <template #header>
@@ -114,21 +113,15 @@
           </el-card>
         </el-col>
       </el-row>
-      
+
       <!-- 详细数据表格 -->
       <el-card shadow="hover" class="table-card">
         <template #header>
           <div class="table-header">
             <span>文件详细统计</span>
             <div class="table-tools">
-              <el-input
-                v-model="searchQuery"
-                placeholder="搜索文件..."
-                :prefix-icon="Search"
-                size="small"
-                style="width: 200px"
-                clearable
-              />
+              <el-input v-model="searchQuery" placeholder="搜索文件..." :prefix-icon="Search" size="small"
+                style="width: 200px" clearable />
               <el-select v-model="sortBy" size="small" style="width: 120px" @change="handleSortChange">
                 <el-option value="fileName" label="文件名" />
                 <el-option value="codeLines" label="代码行" />
@@ -136,16 +129,19 @@
                 <el-option value="blankLines" label="空白行" />
                 <el-option value="total" label="总行数" />
               </el-select>
-              <el-button :icon="sortDirection === 'asc' ? SortUp : SortDown" size="small" @click="toggleSortDirection" />
+              <el-button :icon="sortDirection === 'asc' ? SortUp : SortDown" size="small"
+                @click="toggleSortDirection" />
             </div>
           </div>
         </template>
-        
+
         <el-table :data="filteredAndSortedResults" stripe style="width: 100%">
           <el-table-column prop="fileName" label="文件名" min-width="200">
             <template #default="{ row }">
               <div class="file-name-cell">
-                <el-icon :color="getFileIconColor(row.fileName)"><Document /></el-icon>
+                <el-icon :color="getFileIconColor(row.fileName)">
+                  <Document />
+                </el-icon>
                 <span>{{ row.fileName }}</span>
               </div>
             </template>
@@ -183,7 +179,7 @@
         </el-table>
       </el-card>
     </div>
-    
+
     <!-- 加载中 -->
     <el-dialog v-model="loading" title="分析中" :close-on-click-modal="false" :show-close="false" width="400px" center>
       <div class="loading-content">
@@ -191,20 +187,26 @@
         <p>正在处理您的代码文件，这可能需要一点时间...</p>
       </div>
     </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <HistoryDialog ref="historyDialogRef" metric-type="LOC" @select="loadHistoryData" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   UploadFilled, Upload, Document, ArrowLeft, Download,
   Search, SortUp, SortDown, DataAnalysis, FolderOpened,
-  Files, Collection, Ticket
+  Files, Collection, Ticket, Clock, CircleCheck
 } from '@element-plus/icons-vue';
 import Chart from 'chart.js/auto';
+import { historyApi } from '../../api/history';
+import HistoryDialog from '../history/HistoryDialog.vue';
 
 // State variables
+const projectName = ref('');
 const selectedFiles = ref([]);
 const results = ref([]);
 const loading = ref(false);
@@ -257,24 +259,24 @@ const uploadFiles = async () => {
     ElMessage.warning('请选择要上传的文件');
     return;
   }
-  
+
   loading.value = true;
   uploadProgress.value = 0;
-  
+
   const formData = new FormData();
   for (let i = 0; i < selectedFiles.value.length; i++) {
     formData.append('files', selectedFiles.value[i]);
   }
-  
+
   try {
     const xhr = new XMLHttpRequest();
-    
+
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         uploadProgress.value = Math.round((event.loaded / event.total) * 100);
       }
     };
-    
+
     const response = await new Promise((resolve, reject) => {
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -284,18 +286,18 @@ const uploadFiles = async () => {
         }
       };
       xhr.onerror = () => reject(new Error('Network error'));
-      xhr.open('POST', 'http://127.0.0.1:8080/countCode');
+      xhr.open('POST', `http://127.0.0.1:8080/countCode${projectName.value ? `?projectName=${projectName.value}` : ''}`);
       xhr.send(formData);
     });
-    
+
     results.value = response;
-    ElMessage.success('分析完成');
-    
+    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
+
     setTimeout(() => {
       createCompositionChart();
       createTopFilesChart();
     }, 100);
-    
+
   } catch (error) {
     console.error('Error uploading files:', error);
     ElMessage.error('文件上传失败: ' + error.message);
@@ -305,13 +307,64 @@ const uploadFiles = async () => {
   }
 };
 
+// 历史记录相关
+const historyDialogRef = ref(null);
+const openHistory = () => {
+  historyDialogRef.value.open();
+};
+
+const saveToHistory = async () => {
+  if (!results.value.length) {
+    ElMessage.warning('没有可保存的数据');
+    return;
+  }
+
+  if (!projectName.value) {
+    try {
+      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '项目名称不能为空'
+      });
+      projectName.value = value;
+    } catch (error) {
+      return;
+    }
+  }
+
+  try {
+    const response = await historyApi.saveHistory({
+      projectName: projectName.value,
+      metricType: 'LOC',
+      data: { results: results.value }
+    });
+    if (response.data.success) {
+      ElMessage.success('历史记录保存成功');
+    }
+  } catch (error) {
+    console.error('保存失败:', error);
+    ElMessage.error('保存历史记录失败');
+  }
+};
+
+const loadHistoryData = (historyData) => {
+  if (historyData && historyData.results) {
+    results.value = historyData.results;
+    setTimeout(() => {
+      createCompositionChart();
+      createTopFilesChart();
+    }, 100);
+  }
+};
+
 // Clear results
 const clearResults = () => {
   results.value = [];
   searchQuery.value = '';
   sortBy.value = 'codeLines';
   sortDirection.value = 'desc';
-  
+
   if (compositionChart) {
     compositionChart.destroy();
     compositionChart = null;
@@ -325,16 +378,16 @@ const clearResults = () => {
 // Export results
 const exportResults = () => {
   if (!results.value.length) return;
-  
+
   const dataStr = JSON.stringify(results.value, null, 2);
   const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement('a');
   link.href = url;
   link.download = `code-metrics-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
-  
+
   URL.revokeObjectURL(url);
   ElMessage.success('导出成功');
 };
@@ -363,11 +416,11 @@ const getCodePercentage = (file) => {
 const createCompositionChart = () => {
   if (compositionChart) compositionChart.destroy();
   if (!compositionChartContainer.value || !results.value.length) return;
-  
+
   const ctx = document.createElement('canvas');
   compositionChartContainer.value.innerHTML = '';
   compositionChartContainer.value.appendChild(ctx);
-  
+
   compositionChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -392,15 +445,15 @@ const createCompositionChart = () => {
 const createTopFilesChart = () => {
   if (topFilesChart) topFilesChart.destroy();
   if (!topFilesChartContainer.value || !results.value.length) return;
-  
+
   const ctx = document.createElement('canvas');
   topFilesChartContainer.value.innerHTML = '';
   topFilesChartContainer.value.appendChild(ctx);
-  
+
   const topFiles = [...results.value]
     .sort((a, b) => b.codeLines - a.codeLines)
     .slice(0, topFilesCount.value || results.value.length);
-  
+
   topFilesChart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -622,9 +675,17 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
-.code-label { color: #67C23A; }
-.comment-label { color: #E6A23C; }
-.blank-label { color: #909399; }
+.code-label {
+  color: #67C23A;
+}
+
+.comment-label {
+  color: #E6A23C;
+}
+
+.blank-label {
+  color: #909399;
+}
 
 .loading-content {
   text-align: center;
@@ -637,7 +698,14 @@ onUnmounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

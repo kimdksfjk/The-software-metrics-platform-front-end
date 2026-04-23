@@ -67,9 +67,16 @@
           </template>
         </el-upload>
 
-        <div class="upload-actions" v-if="fileList.length">
-          <el-button @click="clearFile">清除</el-button>
-          <el-button type="primary" @click="analyzeXml" :loading="loading">
+        <div class="project-name-input" style="margin-bottom: 20px;">
+          <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
+            <template #prepend>项目名称</template>
+          </el-input>
+        </div>
+
+        <div class="upload-actions">
+          <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
+          <el-button v-if="fileList.length" @click="clearFile">清除</el-button>
+          <el-button v-if="fileList.length" type="primary" @click="analyzeXml" :loading="loading">
             开始分析
           </el-button>
         </div>
@@ -82,9 +89,11 @@
       <div class="results-header">
         <div class="header-info">
           <h2>功能点分析结果</h2>
-          <p>文件: {{ fileName }}</p>
+          <p>项目: {{ projectName || '未命名项目' }} | 文件: {{ fileName }}</p>
         </div>
         <div class="header-actions">
+          <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
+          <el-button type="primary" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="primary" @click="exportResult" :icon="Download">导出结果</el-button>
         </div>
@@ -265,16 +274,22 @@
         <p>正在分析功能点，请稍候...</p>
       </div>
     </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <HistoryDialog ref="historyDialogRef" metric-type="FP" @select="loadHistoryData" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Upload, DataAnalysis, Timer, Loading, ArrowLeft, Download } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Upload, DataAnalysis, Timer, Loading, ArrowLeft, Download, Clock, CircleCheck } from '@element-plus/icons-vue';
 import axios from 'axios';
+import { historyApi } from '../../api/history';
+import HistoryDialog from '../history/HistoryDialog.vue';
 
 // 文件相关
+const projectName = ref('');
 const uploadRef = ref(null);
 const fileContent = ref('');
 const fileList = ref([]);
@@ -423,7 +438,7 @@ const analyzeXml = async () => {
   loading.value = true;
 
   try {
-    const res = await axios.post("http://127.0.0.1:8080/FPMetrics", fileContent.value, {
+    const res = await axios.post(`http://127.0.0.1:8080/FPMetrics${projectName.value ? `?projectName=${projectName.value}` : ''}`, fileContent.value, {
       headers: { "Content-Type": "application/xml" }
     });
 
@@ -444,12 +459,99 @@ const analyzeXml = async () => {
     eifScores.value = [];
 
     analysisDone.value = true;
-    ElMessage.success('分析完成');
+    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
   } catch (err) {
     console.error(err);
     ElMessage.error(`分析失败: ${err.message}`);
   } finally {
     loading.value = false;
+  }
+};
+
+// 历史记录相关
+const historyDialogRef = ref(null);
+const openHistory = () => {
+  historyDialogRef.value.open();
+};
+
+const saveToHistory = async () => {
+  if (!analysisDone.value) {
+    ElMessage.warning('没有可保存的数据');
+    return;
+  }
+
+  if (!projectName.value) {
+    try {
+      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '项目名称不能为空'
+      });
+      projectName.value = value;
+    } catch (error) {
+      return;
+    }
+  }
+
+  const exportData = {
+    fileName: fileName.value,
+    ufc: ufc.value,
+    vaf: vaf.value,
+    adjustedFP: adjustedFP.value,
+    estimatedManDays: estimatedManDays.value,
+    estimatedManMonths: estimatedManMonths.value,
+    flowItems: flowItems.value,
+    resourceItems: resourceItems.value,
+    funcItems: funcItems.value,
+    flowTypesMap: flowTypesMap.value,
+    eiScores: eiScores.value,
+    eoScores: eoScores.value,
+    eqScores: eqScores.value,
+    ilfScores: ilfScores.value,
+    eifScores: eifScores.value,
+    factorItems: factorItems.value,
+    humanHour: humanHour.value,
+    monthHour: monthHour.value
+  };
+
+  try {
+    const response = await historyApi.saveHistory({
+      projectName: projectName.value,
+      metricType: 'FP',
+      data: { results: [exportData] }
+    });
+    if (response.data.success) {
+      ElMessage.success('历史记录保存成功');
+    }
+  } catch (error) {
+    console.error('保存失败:', error);
+    ElMessage.error('保存历史记录失败');
+  }
+};
+
+const loadHistoryData = (historyData) => {
+  if (historyData && historyData.results && historyData.results.length > 0) {
+    const data = historyData.results[0];
+    fileName.value = data.fileName;
+    flowItems.value = data.flowItems;
+    resourceItems.value = data.resourceItems;
+    flowTypesMap.value = data.flowTypesMap || {};
+
+    // Use timeout to ensure watch on flowTypesMap doesn't overwrite scores if they are provided
+    setTimeout(() => {
+      if (data.funcItems) funcItems.value = data.funcItems;
+      if (data.eiScores) eiScores.value = data.eiScores;
+      if (data.eoScores) eoScores.value = data.eoScores;
+      if (data.eqScores) eqScores.value = data.eqScores;
+      if (data.ilfScores) ilfScores.value = data.ilfScores;
+      if (data.eifScores) eifScores.value = data.eifScores;
+      if (data.factorItems) factorItems.value = data.factorItems;
+      if (data.humanHour) humanHour.value = data.humanHour;
+      if (data.monthHour) monthHour.value = data.monthHour;
+
+      analysisDone.value = true;
+    }, 50);
   }
 };
 
