@@ -20,7 +20,7 @@
 
         <div class="upload-area">
           <div class="project-name-input" style="margin-bottom: 20px;">
-            <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
+            <el-input v-model="projectName" placeholder="请输入项目名称 (必填)" clearable>
               <template #prepend>项目名称</template>
             </el-input>
           </div>
@@ -56,7 +56,6 @@
         </div>
         <div class="header-actions">
           <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
-          <el-button type="primary" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="success" @click="exportData" :icon="Download">导出数据</el-button>
         </div>
@@ -204,21 +203,21 @@
           <el-table-column prop="name" label="类名" min-width="150" />
           <el-table-column prop="wmc" label="WMC" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.wmc, 10)" size="small">{{ row.wmc
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="rfc" label="RFC" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.rfc, 20)" size="small">{{ row.rfc
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="dit" label="DIT" width="70" sortable />
           <el-table-column prop="noc" label="NOC" width="70" sortable />
           <el-table-column prop="cbo" label="CBO" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.cbo, 5)" size="small">{{ row.cbo
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="lcom" label="LCOM" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.lcom, 10)" size="small">{{ row.lcom
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column label="评估" width="100">
             <template #default="{ row }">
@@ -315,6 +314,10 @@ const clearFile = () => {
 };
 
 const analyzeFile = async () => {
+  if (!projectName.value) {
+    ElMessage.warning('请输入项目名称');
+    return;
+  }
   if (!fileData.value) {
     ElMessage.warning('请先选择文件');
     return;
@@ -324,14 +327,14 @@ const analyzeFile = async () => {
 
   try {
     const response = await axios({
-      url: `http://127.0.0.1:8080/CKMetrics${projectName.value ? `?projectName=${projectName.value}` : ''}`,
+      url: `http://127.0.0.1:8080/CKMetrics?projectName=${projectName.value}`,
       method: 'post',
       data: fileData.value,
       headers: { 'Content-Type': 'application/xml' }
     });
 
     processResponse(response.data);
-    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
+    ElMessage.success('分析完成，记录已自动保存');
   } catch (error) {
     console.error('Error:', error);
     ElMessage.error('分析过程中出错: ' + (error.message || '未知错误'));
@@ -344,41 +347,6 @@ const analyzeFile = async () => {
 const historyDialogRef = ref(null);
 const openHistory = () => {
   historyDialogRef.value.open();
-};
-
-const saveToHistory = async () => {
-  if (!ckData.value.length) {
-    ElMessage.warning('没有可保存的数据');
-    return;
-  }
-
-  if (!projectName.value) {
-    try {
-      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPattern: /\S+/,
-        inputErrorMessage: '项目名称不能为空'
-      });
-      projectName.value = value;
-    } catch (error) {
-      return;
-    }
-  }
-
-  try {
-    const response = await historyApi.saveHistory({
-      projectName: projectName.value,
-      metricType: 'CK',
-      data: { results: ckData.value }
-    });
-    if (response.data.success) {
-      ElMessage.success('历史记录保存成功');
-    }
-  } catch (error) {
-    console.error('保存失败:', error);
-    ElMessage.error('保存历史记录失败');
-  }
 };
 
 const loadHistoryData = (historyData) => {

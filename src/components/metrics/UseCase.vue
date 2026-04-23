@@ -402,7 +402,7 @@ const handleAnalyze = async () => {
   loading.value = true;
 
   try {
-    const res = await axios.post(`http://127.0.0.1:8080/UCPMetrics${projectName.value ? `?projectName=${projectName.value}` : ''}`, fileContent.value, {
+    const res = await axios.post('http://127.0.0.1:8080/UCPMetrics', fileContent.value, {
       headers: { 'Content-Type': 'application/xml' }
     });
 
@@ -413,7 +413,7 @@ const handleAnalyze = async () => {
     usecaseTypes.value = usecases.value.map(() => 5);
 
     analysisDone.value = true;
-    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
+    ElMessage.success('分析完成');
   } catch (err) {
     console.error(err);
     ElMessage.error(`分析失败: ${err.message}`);
