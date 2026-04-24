@@ -331,13 +331,27 @@ const openHistory = () => {
   historyDialogRef.value.open();
 };
 
-const loadHistoryData = (historyData) => {
-  if (historyData && historyData.results) {
-    results.value = historyData.results;
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      results.value = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      results.value = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      results.value = row.data.data;
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误');
+      return;
+    }
+
     setTimeout(() => {
       createCompositionChart();
       createTopFilesChart();
-    }, 100);
+    }, 200);
   }
 };
 

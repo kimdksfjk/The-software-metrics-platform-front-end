@@ -476,21 +476,37 @@ const saveToHistory = async () => {
   }
 };
 
-const loadHistoryData = (historyData) => {
-  if (historyData && historyData.results && historyData.results.length > 0) {
-    const data = historyData.results[0];
-    fileName.value = data.fileName;
-    actors.value = data.actors;
-    usecases.value = data.usecases;
-    actorTypes.value = data.actorTypes || data.actors.map(() => 1);
-    usecaseTypes.value = data.usecaseTypes || data.usecases.map(() => 5);
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+    
+    let historyResults = [];
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      historyResults = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      historyResults = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      historyResults = row.data.data;
+    }
 
-    if (data.techFactors) techFactors.value = data.techFactors;
-    if (data.envFactors) envFactors.value = data.envFactors;
-    if (data.humanHour) humanHour.value = data.humanHour;
-    if (data.monthHour) monthHour.value = data.monthHour;
-
-    analysisDone.value = true;
+    if (historyResults.length > 0) {
+      const data = historyResults[0];
+      fileName.value = data.fileName || '';
+      actors.value = data.actors || [];
+      usecases.value = data.usecases || [];
+      actorTypes.value = data.actorTypes || [];
+      usecaseTypes.value = data.usecaseTypes || [];
+      techFactors.value = data.techFactors || [];
+      envFactors.value = data.envFactors || [];
+      humanHour.value = data.humanHour || 20;
+      monthHour.value = data.monthHour || 160;
+      analysisDone.value = true;
+      ElMessage.success('历史记录加载成功');
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误或为空');
+    }
   }
 };
 </script>

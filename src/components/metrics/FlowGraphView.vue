@@ -347,12 +347,29 @@ const saveToHistory = async () => {
   }
 };
 
-const loadHistoryData = (historyData) => {
-  if (historyData && historyData.results && historyData.results.length > 0) {
-    result.value = historyData.results[0];
-    setTimeout(() => {
-      createGaugeChart();
-    }, 100);
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+    
+    let historyResults = [];
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      historyResults = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      historyResults = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      historyResults = row.data.data;
+    }
+
+    if (historyResults.length > 0) {
+      result.value = historyResults[0];
+      setTimeout(() => {
+        createGaugeChart();
+      }, 200);
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误或为空');
+    }
   }
 };
 

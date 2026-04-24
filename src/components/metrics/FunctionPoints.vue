@@ -526,28 +526,46 @@ const saveToHistory = async () => {
   }
 };
 
-const loadHistoryData = (historyData) => {
-  if (historyData && historyData.results && historyData.results.length > 0) {
-    const data = historyData.results[0];
-    fileName.value = data.fileName;
-    flowItems.value = data.flowItems;
-    resourceItems.value = data.resourceItems;
-    flowTypesMap.value = data.flowTypesMap || {};
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+    
+    let historyResults = [];
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      historyResults = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      historyResults = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      historyResults = row.data.data;
+    }
 
-    // Use timeout to ensure watch on flowTypesMap doesn't overwrite scores if they are provided
-    setTimeout(() => {
-      if (data.funcItems) funcItems.value = data.funcItems;
-      if (data.eiScores) eiScores.value = data.eiScores;
-      if (data.eoScores) eoScores.value = data.eoScores;
-      if (data.eqScores) eqScores.value = data.eqScores;
-      if (data.ilfScores) ilfScores.value = data.ilfScores;
-      if (data.eifScores) eifScores.value = data.eifScores;
-      if (data.factorItems) factorItems.value = data.factorItems;
-      if (data.humanHour) humanHour.value = data.humanHour;
-      if (data.monthHour) monthHour.value = data.monthHour;
-
-      analysisDone.value = true;
-    }, 50);
+    if (historyResults.length > 0) {
+      const data = historyResults[0];
+      fileName.value = data.fileName || '';
+      flowItems.value = data.flowItems || [];
+      resourceItems.value = data.resourceItems || [];
+      flowTypesMap.value = data.flowTypesMap || {};
+      
+      // Use timeout to ensure watch on flowTypesMap doesn't overwrite scores if they are provided
+      setTimeout(() => {
+        if (data.funcItems) funcItems.value = data.funcItems;
+        if (data.eiScores) eiScores.value = data.eiScores;
+        if (data.eoScores) eoScores.value = data.eoScores;
+        if (data.eqScores) eqScores.value = data.eqScores;
+        if (data.ilfScores) ilfScores.value = data.ilfScores;
+        if (data.eifScores) eifScores.value = data.eifScores;
+        if (data.factorItems) factorItems.value = data.factorItems;
+        humanHour.value = data.humanHour || 20;
+        monthHour.value = data.monthHour || 160;
+        
+        analysisDone.value = true;
+        ElMessage.success('历史记录加载成功');
+      }, 50);
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误或为空');
+    }
   }
 };
 

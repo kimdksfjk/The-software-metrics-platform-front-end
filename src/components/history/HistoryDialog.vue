@@ -125,7 +125,7 @@ const getDataCount = (data) => {
 };
 
 const useHistory = (row) => {
-  emit('select', row.data);
+  emit('select', row);
   visible.value = false;
   ElMessage.success(`已加载项目 ${row.projectName} 的历史记录`);
 };
