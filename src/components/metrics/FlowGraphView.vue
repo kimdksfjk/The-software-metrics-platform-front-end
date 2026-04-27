@@ -1,12 +1,7 @@
 <template>
   <div class="flowgraph-container">
     <!-- 说明卡片 -->
-    <el-alert
-      title="程序流程图度量"
-      type="warning"
-      :closable="false"
-      class="info-alert"
-    >
+    <el-alert title="程序流程图度量" type="warning" :closable="false" class="info-alert">
       <template #default>
         <p>圈复杂度 = 边数 - 节点数 + 2，用于评估代码的复杂程度和测试难度。上传Draw.io导出的流程图XML文件，系统将自动分析圈复杂度。</p>
       </template>
@@ -17,27 +12,23 @@
       <div class="upload-content">
         <el-empty description="上传流程图文件" :image-size="80">
           <template #image>
-            <el-icon :size="60" color="#E6A23C"><Share /></el-icon>
+            <el-icon :size="60" color="#E6A23C">
+              <Share />
+            </el-icon>
           </template>
         </el-empty>
-        
+
         <div class="project-name-input" style="margin-bottom: 20px;">
           <el-input v-model="projectName" placeholder="请输入项目名称 (必填)" clearable>
             <template #prepend>项目名称</template>
           </el-input>
         </div>
-        
-        <el-upload
-          ref="uploadRef"
-          drag
-          :auto-upload="false"
-          :on-change="handleFileChange"
-          :file-list="fileList"
-          action="#"
-          accept=".xml"
-          class="upload-area"
-        >
-          <el-icon class="upload-icon"><Upload /></el-icon>
+
+        <el-upload ref="uploadRef" drag :auto-upload="false" :on-change="handleFileChange" :file-list="fileList"
+          action="#" accept=".xml" class="upload-area">
+          <el-icon class="upload-icon">
+            <Upload />
+          </el-icon>
           <div class="upload-text">
             将XML文件拖到此处，或<em>点击上传</em>
           </div>
@@ -47,17 +38,17 @@
             </div>
           </template>
         </el-upload>
-        
-        <div class="upload-actions" v-if="fileList.length">
+
+        <div class="upload-actions">
           <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
-          <el-button @click="clearFile">清除</el-button>
-          <el-button type="warning" @click="analyzeFile" :loading="loading">
+          <el-button v-if="fileList.length" @click="clearFile">清除</el-button>
+          <el-button v-if="fileList.length" type="warning" @click="analyzeFile" :loading="loading">
             开始分析
           </el-button>
         </div>
       </div>
     </el-card>
-    
+
     <!-- 分析结果 -->
     <div v-if="result" class="results-container">
       <!-- 结果头部 -->
@@ -72,16 +63,15 @@
           <el-button type="warning" @click="exportResult" :icon="Download">导出结果</el-button>
         </div>
       </div>
-      
-      <!-- 历史记录弹窗 -->
-      <HistoryDialog ref="historyDialogRef" metric-type="VG" @select="loadHistoryData" />
-      
+
       <!-- 核心指标卡片 -->
       <el-row :gutter="20" class="metrics-row">
         <el-col :span="6">
           <div class="metric-card" :class="getComplexityClass(result.cyclomaticComplexity)">
             <div class="metric-icon">
-              <el-icon :size="28"><Share /></el-icon>
+              <el-icon :size="28">
+                <Share />
+              </el-icon>
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ result.cyclomaticComplexity }}</div>
@@ -92,7 +82,9 @@
         <el-col :span="6">
           <div class="metric-card">
             <div class="metric-icon">
-              <el-icon :size="28"><Grid /></el-icon>
+              <el-icon :size="28">
+                <Grid />
+              </el-icon>
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ result.nodeCount }}</div>
@@ -103,7 +95,9 @@
         <el-col :span="6">
           <div class="metric-card">
             <div class="metric-icon">
-              <el-icon :size="28"><Connection /></el-icon>
+              <el-icon :size="28">
+                <Connection />
+              </el-icon>
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ result.edgeCount }}</div>
@@ -114,7 +108,9 @@
         <el-col :span="6">
           <div class="metric-card">
             <div class="metric-icon">
-              <el-icon :size="28"><Document /></el-icon>
+              <el-icon :size="28">
+                <Document />
+              </el-icon>
             </div>
             <div class="metric-info">
               <div class="metric-value">{{ result.branchCount || 0 }}</div>
@@ -123,7 +119,7 @@
           </div>
         </el-col>
       </el-row>
-      
+
       <!-- 复杂度仪表盘和建议 -->
       <el-row :gutter="20">
         <el-col :span="12">
@@ -137,7 +133,7 @@
             </div>
           </el-card>
         </el-col>
-        
+
         <el-col :span="12">
           <el-card shadow="hover" class="suggestion-card">
             <template #header>
@@ -152,7 +148,7 @@
           </el-card>
         </el-col>
       </el-row>
-      
+
       <!-- 复杂度阈值说明 -->
       <el-card class="threshold-card" shadow="hover">
         <template #header>
@@ -165,23 +161,28 @@
         </el-table>
       </el-card>
     </div>
-    
+
     <!-- 加载中 -->
     <el-dialog v-model="loading" title="分析中" :close-on-click-modal="false" :show-close="false" width="400px" center>
       <div class="loading-content">
-        <el-icon class="is-loading" :size="48" color="#E6A23C"><Loading /></el-icon>
+        <el-icon class="is-loading" :size="48" color="#E6A23C">
+          <Loading />
+        </el-icon>
         <p>正在分析流程图，请稍候...</p>
       </div>
     </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <HistoryDialog ref="historyDialogRef" metric-type="VG" @select="loadHistoryData" />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { 
-  Upload, Share, ArrowLeft, Download, Grid, Connection, Document, 
-  WarningFilled, Loading, Clock 
+import {
+  Upload, Share, ArrowLeft, Download, Grid, Connection, Document,
+  WarningFilled, Loading, Clock
 } from '@element-plus/icons-vue';
 import Chart from 'chart.js/auto';
 import axios from 'axios';
@@ -267,26 +268,26 @@ const analyzeFile = async () => {
     ElMessage.warning('请先选择文件');
     return;
   }
-  
+
   loading.value = true;
-  
+
   try {
     // 使用 FormData 发送文件
     const formData = new FormData();
     formData.append('file', fileList.value[0].raw);
-    
+
     const res = await axios.post('http://127.0.0.1:8080/api/flowgraph/analyze', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
-    
-    if(res.data.code === 200) {
+
+    if (res.data.code === 200) {
       result.value = res.data.data;
       setTimeout(() => {
         createGaugeChart();
       }, 100);
-      
+
       // 保存历史记录
       try {
         const response = await historyApi.saveHistory({
@@ -319,7 +320,7 @@ const openHistory = () => {
 const loadHistoryData = (row) => {
   if (row && row.data) {
     projectName.value = row.projectName || '';
-    
+
     let historyResults = [];
     // 灵活处理不同的数据包装格式
     if (Array.isArray(row.data)) {
@@ -355,16 +356,16 @@ const clearResults = () => {
 // 导出结果
 const exportResult = () => {
   if (!result.value) return;
-  
+
   const dataStr = JSON.stringify(result.value, null, 2);
   const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement('a');
   link.href = url;
   link.download = `flowgraph-metrics-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
-  
+
   URL.revokeObjectURL(url);
   ElMessage.success('导出成功');
 };
@@ -374,21 +375,21 @@ const createGaugeChart = () => {
   if (gaugeChart) {
     gaugeChart.destroy();
   }
-  
+
   if (!gaugeChartContainer.value || !result.value) return;
-  
+
   const ctx = document.createElement('canvas');
   gaugeChartContainer.value.innerHTML = '';
   gaugeChartContainer.value.appendChild(ctx);
-  
+
   const complexity = result.value.cyclomaticComplexity;
   let color = '#67C23A';
   if (complexity > 10) color = '#F56C6C';
   else if (complexity > 5) color = '#E6A23C';
-  
+
   // 计算百分比（最大按20计算）
   const percentage = Math.min(complexity / 20 * 100, 100);
-  
+
   gaugeChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -405,9 +406,9 @@ const createGaugeChart = () => {
       maintainAspectRatio: false,
       cutout: '70%',
       plugins: {
-        tooltip: { 
+        tooltip: {
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               if (context.dataIndex === 0) {
                 return `复杂度: ${complexity}`;
               }
@@ -419,7 +420,7 @@ const createGaugeChart = () => {
       }
     }
   });
-  
+
   // 添加中心文字
   const centerText = document.createElement('div');
   centerText.style.position = 'absolute';
@@ -431,7 +432,7 @@ const createGaugeChart = () => {
   centerText.style.fontWeight = 'bold';
   centerText.style.color = color;
   centerText.innerText = complexity;
-  
+
   const canvasContainer = gaugeChartContainer.value;
   canvasContainer.style.position = 'relative';
   const oldText = canvasContainer.querySelector('.center-text');
@@ -515,10 +516,25 @@ const createGaugeChart = () => {
   transition: all 0.3s ease;
 }
 
-.metric-card.complexity-low { background: linear-gradient(135deg, #F0F9EB, #E8F5E9); border-left: 4px solid #67C23A; }
-.metric-card.complexity-moderate { background: linear-gradient(135deg, #FDF6EC, #FFF3E0); border-left: 4px solid #E6A23C; }
-.metric-card.complexity-high { background: linear-gradient(135deg, #FEF0F0, #FFEBEE); border-left: 4px solid #F56C6C; }
-.metric-card.complexity-extreme { background: linear-gradient(135deg, #FEF0F0, #FFEBEE); border-left: 4px solid #F56C6C; }
+.metric-card.complexity-low {
+  background: linear-gradient(135deg, #F0F9EB, #E8F5E9);
+  border-left: 4px solid #67C23A;
+}
+
+.metric-card.complexity-moderate {
+  background: linear-gradient(135deg, #FDF6EC, #FFF3E0);
+  border-left: 4px solid #E6A23C;
+}
+
+.metric-card.complexity-high {
+  background: linear-gradient(135deg, #FEF0F0, #FFEBEE);
+  border-left: 4px solid #F56C6C;
+}
+
+.metric-card.complexity-extreme {
+  background: linear-gradient(135deg, #FEF0F0, #FFEBEE);
+  border-left: 4px solid #F56C6C;
+}
 
 .metric-icon {
   width: 48px;
@@ -567,10 +583,25 @@ const createGaugeChart = () => {
   margin-top: 16px;
 }
 
-.complexity-level.complexity-low { background-color: #F0F9EB; color: #67C23A; }
-.complexity-level.complexity-moderate { background-color: #FDF6EC; color: #E6A23C; }
-.complexity-level.complexity-high { background-color: #FEF0F0; color: #F56C6C; }
-.complexity-level.complexity-extreme { background-color: #FEF0F0; color: #F56C6C; }
+.complexity-level.complexity-low {
+  background-color: #F0F9EB;
+  color: #67C23A;
+}
+
+.complexity-level.complexity-moderate {
+  background-color: #FDF6EC;
+  color: #E6A23C;
+}
+
+.complexity-level.complexity-high {
+  background-color: #FEF0F0;
+  color: #F56C6C;
+}
+
+.complexity-level.complexity-extreme {
+  background-color: #FEF0F0;
+  color: #F56C6C;
+}
 
 .suggestion-content {
   display: flex;
@@ -597,7 +628,14 @@ const createGaugeChart = () => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
