@@ -33,6 +33,8 @@ import LKmetrics from './components/metrics/LKmetrics.vue';
 import CodeLines from './components/metrics/CodeLines.vue';
 import CocomoView from './components/metrics/CocomoView.vue';
 import FlowGraphView from './components/metrics/FlowGraphView.vue';
+import CodeCloneView from './components/metrics/CodeCloneView.vue';
+import AiRefactoringView from './components/metrics/AiRefactoringView.vue';
 import { usePageTitle } from './composables/usePageTitle';
 
 // Sidebar width
@@ -61,6 +63,10 @@ const currentComponent = computed(() => {
       return CocomoView;
     case 'flowgraph':
       return FlowGraphView;
+    case 'codeClone': 
+      return CodeCloneView;
+    case 'aiRefactor': 
+      return AiRefactoringView;
     default:
       return FunctionPoints;
   }

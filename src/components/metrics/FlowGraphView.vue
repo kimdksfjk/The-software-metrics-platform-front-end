@@ -18,6 +18,12 @@
           </template>
         </el-empty>
 
+        <div class="project-name-input" style="margin-bottom: 20px;">
+          <el-input v-model="projectName" placeholder="请输入项目名称 (必填)" clearable>
+            <template #prepend>项目名称</template>
+          </el-input>
+        </div>
+
         <el-upload ref="uploadRef" drag :auto-upload="false" :on-change="handleFileChange" :file-list="fileList"
           action="#" accept=".xml" class="upload-area">
           <el-icon class="upload-icon">
@@ -32,12 +38,6 @@
             </div>
           </template>
         </el-upload>
-
-        <div class="project-name-input" style="margin-bottom: 20px;">
-          <el-input v-model="projectName" placeholder="请输入项目名称 (可选)" clearable>
-            <template #prepend>项目名称</template>
-          </el-input>
-        </div>
 
         <div class="upload-actions">
           <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
@@ -59,7 +59,6 @@
         </div>
         <div class="header-actions">
           <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
-          <el-button type="primary" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="warning" @click="exportResult" :icon="Download">导出结果</el-button>
         </div>
@@ -183,7 +182,7 @@ import { ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   Upload, Share, ArrowLeft, Download, Grid, Connection, Document,
-  WarningFilled, Loading, Clock, CircleCheck
+  WarningFilled, Loading, Clock
 } from '@element-plus/icons-vue';
 import Chart from 'chart.js/auto';
 import axios from 'axios';
@@ -198,6 +197,7 @@ const result = ref(null);
 const loading = ref(false);
 const uploadRef = ref(null);
 const gaugeChartContainer = ref(null);
+const historyDialogRef = ref(null);
 let gaugeChart = null;
 
 // 阈值数据
@@ -260,6 +260,10 @@ const clearFile = () => {
 
 // 分析文件
 const analyzeFile = async () => {
+  if (!projectName.value) {
+    ElMessage.warning('请输入项目名称');
+    return;
+  }
   if (!fileContent.value) {
     ElMessage.warning('请先选择文件');
     return;
@@ -272,85 +276,51 @@ const analyzeFile = async () => {
     const formData = new FormData();
     formData.append('file', fileList.value[0].raw);
 
-    const res = await axios.post(`http://127.0.0.1:8080/VGMetrics${projectName.value ? `?projectName=${projectName.value}` : ''}`, formData, {
+    const res = await axios.post('http://127.0.0.1:8080/api/flowgraph/analyze', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
 
-    result.value = res.data.data;
+    if (res.data.code === 200) {
+      result.value = res.data.data;
+      setTimeout(() => {
+        createGaugeChart();
+      }, 100);
 
-    setTimeout(() => {
-      createGaugeChart();
-    }, 100);
-
-    ElMessage.success('分析完成' + (projectName.value ? '，记录已自动保存' : ''));
+      // 保存历史记录
+      try {
+        const response = await historyApi.saveHistory({
+          projectName: projectName.value,
+          metricType: 'VG',
+          data: { results: [result.value] }
+        });
+        if (response.data.success) {
+          ElMessage.success('分析完成，记录已自动保存');
+        }
+      } catch (historyError) {
+        console.error('保存历史记录失败:', historyError);
+      }
+    } else {
+      ElMessage.error(res.data.message || '解析XML失败');
+    }
   } catch (error) {
     console.error('Error:', error);
-    // 使用模拟数据进行演示
-    result.value = {
-      fileName: fileList.value[0]?.raw?.name || 'example.xml',
-      cyclomaticComplexity: 8,
-      nodeCount: 15,
-      edgeCount: 22,
-      branchCount: 5,
-      complexityLevel: '中等',
-      suggestion: '代码复杂度适中，建议适当简化判定节点'
-    };
-    setTimeout(() => {
-      createGaugeChart();
-    }, 100);
-    ElMessage.warning('后端接口未就绪，使用模拟数据');
+    ElMessage.error('上传解析失败: ' + (error.response?.data?.message || error.message || '请检查后端服务是否启动'));
   } finally {
     loading.value = false;
   }
 };
 
 // 历史记录相关
-const historyDialogRef = ref(null);
 const openHistory = () => {
   historyDialogRef.value.open();
-};
-
-const saveToHistory = async () => {
-  if (!result.value) {
-    ElMessage.warning('没有可保存的数据');
-    return;
-  }
-
-  if (!projectName.value) {
-    try {
-      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPattern: /\S+/,
-        inputErrorMessage: '项目名称不能为空'
-      });
-      projectName.value = value;
-    } catch (error) {
-      return;
-    }
-  }
-
-  try {
-    const response = await historyApi.saveHistory({
-      projectName: projectName.value,
-      metricType: 'VG',
-      data: { results: [result.value] }
-    });
-    if (response.data.success) {
-      ElMessage.success('历史记录保存成功');
-    }
-  } catch (error) {
-    console.error('保存失败:', error);
-    ElMessage.error('保存历史记录失败');
-  }
 };
 
 const loadHistoryData = (row) => {
   if (row && row.data) {
     projectName.value = row.projectName || '';
-    
+
     let historyResults = [];
     // 灵活处理不同的数据包装格式
     if (Array.isArray(row.data)) {
