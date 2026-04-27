@@ -19,6 +19,11 @@
         </el-empty>
 
         <div class="upload-area">
+          <div class="project-name-input" style="margin-bottom: 20px;">
+            <el-input v-model="projectName" placeholder="请输入项目名称 (必填)" clearable>
+              <template #prepend>项目名称</template>
+            </el-input>
+          </div>
           <el-upload ref="uploadRef" drag :auto-upload="false" :on-change="onFileSelected" :file-list="fileList"
             accept=".xml" :limit="1">
             <el-icon class="upload-icon">
@@ -31,9 +36,10 @@
           </el-upload>
         </div>
 
-        <div class="upload-actions" v-if="fileList.length">
-          <el-button @click="clearFile">清除</el-button>
-          <el-button type="success" @click="analyzeFile" :loading="loading">
+        <div class="upload-actions">
+          <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
+          <el-button v-if="fileList.length" @click="clearFile">清除</el-button>
+          <el-button v-if="fileList.length" type="success" @click="analyzeFile" :loading="loading">
             开始分析
           </el-button>
         </div>
@@ -46,9 +52,10 @@
       <div class="results-header">
         <div class="header-info">
           <h2>CK 指标分析报告</h2>
-          <p>分析了 {{ ckData.length }} 个类</p>
+          <p>项目: {{ projectName || '未命名项目' }} | 分析了 {{ ckData.length }} 个类</p>
         </div>
         <div class="header-actions">
+          <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="success" @click="exportData" :icon="Download">导出数据</el-button>
         </div>
@@ -196,21 +203,21 @@
           <el-table-column prop="name" label="类名" min-width="150" />
           <el-table-column prop="wmc" label="WMC" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.wmc, 10)" size="small">{{ row.wmc
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="rfc" label="RFC" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.rfc, 20)" size="small">{{ row.rfc
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="dit" label="DIT" width="70" sortable />
           <el-table-column prop="noc" label="NOC" width="70" sortable />
           <el-table-column prop="cbo" label="CBO" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.cbo, 5)" size="small">{{ row.cbo
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column prop="lcom" label="LCOM" width="80" sortable>
             <template #default="{ row }"><el-tag :type="getMetricTagType(row.lcom, 10)" size="small">{{ row.lcom
-                }}</el-tag></template>
+            }}</el-tag></template>
           </el-table-column>
           <el-table-column label="评估" width="100">
             <template #default="{ row }">
@@ -230,17 +237,23 @@
         <p>正在分析 CK 指标，请稍候...</p>
       </div>
     </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <HistoryDialog ref="historyDialogRef" metric-type="CK" @select="loadHistoryData" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Upload, Grid, ArrowLeft, Download, Search, Loading, Warning, CircleCheck } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Upload, Grid, ArrowLeft, Download, Search, Loading, Warning, CircleCheck, Clock } from '@element-plus/icons-vue';
 import Chart from 'chart.js/auto';
 import axios from 'axios';
+import { historyApi } from '../../api/history';
+import HistoryDialog from '../history/HistoryDialog.vue';
 
 // 状态变量
+const projectName = ref('');
 const fileName = ref('');
 const fileData = ref('');
 const loading = ref(false);
@@ -301,6 +314,10 @@ const clearFile = () => {
 };
 
 const analyzeFile = async () => {
+  if (!projectName.value) {
+    ElMessage.warning('请输入项目名称');
+    return;
+  }
   if (!fileData.value) {
     ElMessage.warning('请先选择文件');
     return;
@@ -310,19 +327,50 @@ const analyzeFile = async () => {
 
   try {
     const response = await axios({
-      url: "http://127.0.0.1:8080/CKMetrics",
+      url: `http://127.0.0.1:8080/CKMetrics?projectName=${projectName.value}`,
       method: 'post',
       data: fileData.value,
       headers: { 'Content-Type': 'application/xml' }
     });
 
     processResponse(response.data);
-    ElMessage.success('分析完成');
+    ElMessage.success('分析完成，记录已自动保存');
   } catch (error) {
     console.error('Error:', error);
     ElMessage.error('分析过程中出错: ' + (error.message || '未知错误'));
   } finally {
     loading.value = false;
+  }
+};
+
+// 历史记录相关
+const historyDialogRef = ref(null);
+const openHistory = () => {
+  historyDialogRef.value.open();
+};
+
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+    
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      ckData.value = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      ckData.value = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      ckData.value = row.data.data;
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误');
+      return;
+    }
+
+    setTimeout(() => {
+      createMainChart();
+      createRadarChart();
+      createQualityChart();
+    }, 200);
   }
 };
 

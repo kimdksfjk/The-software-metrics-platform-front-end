@@ -67,9 +67,10 @@
           </template>
         </el-upload>
 
-        <div class="upload-actions" v-if="fileList.length">
-          <el-button @click="clearFile">清除</el-button>
-          <el-button type="warning" @click="handleAnalyze" :loading="loading">
+        <div class="upload-actions">
+          <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
+          <el-button v-if="fileList.length" @click="clearFile">清除</el-button>
+          <el-button v-if="fileList.length" type="warning" @click="handleAnalyze" :loading="loading">
             开始分析
           </el-button>
         </div>
@@ -82,9 +83,11 @@
       <div class="results-header">
         <div class="header-info">
           <h2>用例点分析结果</h2>
-          <p>文件: {{ fileName }}</p>
+          <p>项目: {{ projectName || '未命名项目' }} | 文件: {{ fileName }}</p>
         </div>
         <div class="header-actions">
+          <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
+          <el-button type="primary" @click="saveToHistory" :icon="CircleCheck">保存记录</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="warning" @click="exportResult" :icon="Download">导出结果</el-button>
         </div>
@@ -233,16 +236,22 @@
         <p>正在分析用例图，请稍候...</p>
       </div>
     </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <HistoryDialog ref="historyDialogRef" metric-type="UCP" @select="loadHistoryData" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Upload, Share, DataAnalysis, Timer, Loading, ArrowLeft, Download } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Upload, Share, DataAnalysis, Timer, Loading, ArrowLeft, Download, Clock, CircleCheck } from '@element-plus/icons-vue';
 import axios from 'axios';
+import { historyApi } from '../../api/history';
+import HistoryDialog from '../history/HistoryDialog.vue';
 
 // 文件相关
+const projectName = ref('');
 const uploadRef = ref(null);
 const fileContent = ref('');
 const fileList = ref([]);
@@ -404,6 +413,100 @@ const handleAnalyze = async () => {
     ElMessage.error(`分析失败: ${err.message}`);
   } finally {
     loading.value = false;
+  }
+};
+
+// 历史记录相关
+const historyDialogRef = ref(null);
+const openHistory = () => {
+  historyDialogRef.value.open();
+};
+
+const saveToHistory = async () => {
+  if (!analysisDone.value) {
+    ElMessage.warning('没有可保存的数据');
+    return;
+  }
+
+  if (!projectName.value) {
+    try {
+      const { value } = await ElMessageBox.prompt('请输入项目名称', '保存历史记录', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '项目名称不能为空'
+      });
+      projectName.value = value;
+    } catch (error) {
+      return;
+    }
+  }
+
+  const exportData = {
+    fileName: fileName.value,
+    uaw: uaw.value,
+    uuc: uuc.value,
+    uucp: uucp.value,
+    tcf: tcf.value,
+    ef: ef.value,
+    ucp: ucp.value,
+    estimatedEffort: estimatedEffort.value,
+    actors: actors.value,
+    usecases: usecases.value,
+    actorTypes: actorTypes.value,
+    usecaseTypes: usecaseTypes.value,
+    techFactors: techFactors.value,
+    envFactors: envFactors.value,
+    humanHour: humanHour.value,
+    monthHour: monthHour.value
+  };
+
+  try {
+    const response = await historyApi.saveHistory({
+      projectName: projectName.value,
+      metricType: 'UCP',
+      data: { results: [exportData] }
+    });
+    if (response.data.success) {
+      ElMessage.success('历史记录保存成功');
+    }
+  } catch (error) {
+    console.error('保存失败:', error);
+    ElMessage.error('保存历史记录失败');
+  }
+};
+
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+    
+    let historyResults = [];
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      historyResults = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      historyResults = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      historyResults = row.data.data;
+    }
+
+    if (historyResults.length > 0) {
+      const data = historyResults[0];
+      fileName.value = data.fileName || '';
+      actors.value = data.actors || [];
+      usecases.value = data.usecases || [];
+      actorTypes.value = data.actorTypes || [];
+      usecaseTypes.value = data.usecaseTypes || [];
+      techFactors.value = data.techFactors || [];
+      envFactors.value = data.envFactors || [];
+      humanHour.value = data.humanHour || 20;
+      monthHour.value = data.monthHour || 160;
+      analysisDone.value = true;
+      ElMessage.success('历史记录加载成功');
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误或为空');
+    }
   }
 };
 </script>
