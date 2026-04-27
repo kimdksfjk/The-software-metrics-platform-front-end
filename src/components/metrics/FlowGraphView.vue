@@ -21,6 +21,12 @@
           </template>
         </el-empty>
         
+        <div class="project-name-input" style="margin-bottom: 20px;">
+          <el-input v-model="projectName" placeholder="请输入项目名称 (必填)" clearable>
+            <template #prepend>项目名称</template>
+          </el-input>
+        </div>
+        
         <el-upload
           ref="uploadRef"
           drag
@@ -43,6 +49,7 @@
         </el-upload>
         
         <div class="upload-actions" v-if="fileList.length">
+          <el-button @click="openHistory" :icon="Clock">历史记录</el-button>
           <el-button @click="clearFile">清除</el-button>
           <el-button type="warning" @click="analyzeFile" :loading="loading">
             开始分析
@@ -57,13 +64,17 @@
       <div class="results-header">
         <div class="header-info">
           <h2>流程图度量结果</h2>
-          <p>文件: {{ result.fileName }}</p>
+          <p>项目: {{ projectName || '未命名项目' }} | 文件: {{ result.fileName }}</p>
         </div>
         <div class="header-actions">
+          <el-button @click="openHistory" :icon="Clock">查看历史</el-button>
           <el-button @click="clearResults" :icon="ArrowLeft">返回上传</el-button>
           <el-button type="warning" @click="exportResult" :icon="Download">导出结果</el-button>
         </div>
       </div>
+      
+      <!-- 历史记录弹窗 -->
+      <HistoryDialog ref="historyDialogRef" metric-type="VG" @select="loadHistoryData" />
       
       <!-- 核心指标卡片 -->
       <el-row :gutter="20" class="metrics-row">
@@ -167,21 +178,25 @@
 
 <script setup>
 import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
   Upload, Share, ArrowLeft, Download, Grid, Connection, Document, 
-  WarningFilled, Loading 
+  WarningFilled, Loading, Clock 
 } from '@element-plus/icons-vue';
 import Chart from 'chart.js/auto';
 import axios from 'axios';
+import { historyApi } from '../../api/history';
+import HistoryDialog from '../history/HistoryDialog.vue';
 
 // 状态变量
+const projectName = ref('');
 const fileList = ref([]);
 const fileContent = ref('');
 const result = ref(null);
 const loading = ref(false);
 const uploadRef = ref(null);
 const gaugeChartContainer = ref(null);
+const historyDialogRef = ref(null);
 let gaugeChart = null;
 
 // 阈值数据
@@ -244,6 +259,10 @@ const clearFile = () => {
 
 // 分析文件
 const analyzeFile = async () => {
+  if (!projectName.value) {
+    ElMessage.warning('请输入项目名称');
+    return;
+  }
   if (!fileContent.value) {
     ElMessage.warning('请先选择文件');
     return;
@@ -267,7 +286,20 @@ const analyzeFile = async () => {
       setTimeout(() => {
         createGaugeChart();
       }, 100);
-      ElMessage.success('分析完成');
+      
+      // 保存历史记录
+      try {
+        const response = await historyApi.saveHistory({
+          projectName: projectName.value,
+          metricType: 'VG',
+          data: { results: [result.value] }
+        });
+        if (response.data.success) {
+          ElMessage.success('分析完成，记录已自动保存');
+        }
+      } catch (historyError) {
+        console.error('保存历史记录失败:', historyError);
+      }
     } else {
       ElMessage.error(res.data.message || '解析XML失败');
     }
@@ -276,6 +308,37 @@ const analyzeFile = async () => {
     ElMessage.error('上传解析失败: ' + (error.response?.data?.message || error.message || '请检查后端服务是否启动'));
   } finally {
     loading.value = false;
+  }
+};
+
+// 历史记录相关
+const openHistory = () => {
+  historyDialogRef.value.open();
+};
+
+const loadHistoryData = (row) => {
+  if (row && row.data) {
+    projectName.value = row.projectName || '';
+    
+    let historyResults = [];
+    // 灵活处理不同的数据包装格式
+    if (Array.isArray(row.data)) {
+      historyResults = row.data;
+    } else if (row.data.results && Array.isArray(row.data.results)) {
+      historyResults = row.data.results;
+    } else if (row.data.data && Array.isArray(row.data.data)) {
+      historyResults = row.data.data;
+    }
+
+    if (historyResults.length > 0) {
+      result.value = historyResults[0];
+      setTimeout(() => {
+        createGaugeChart();
+      }, 200);
+    } else {
+      console.error('无法解析历史数据格式:', row.data);
+      ElMessage.error('历史记录数据格式错误或为空');
+    }
   }
 };
 
