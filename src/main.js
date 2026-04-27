@@ -4,6 +4,8 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import './index.css'
+import VueDiff from 'vue-diff'
+import 'vue-diff/dist/index.css'
 
 const app = createApp(App)
 
@@ -13,4 +15,5 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 app.use(ElementPlus)
+app.use(VueDiff)
 app.mount('#app')

@@ -137,17 +137,20 @@ const handleEstimate = async () => {
   loading.value = true;
   
   try {
-    const res = await axios.post('/api/cocomo/estimate', formData.value);
-    result.value = res.data.data;
+    const res = await axios.post('http://localhost:8080/api/cocomo/estimate', formData.value);
     
-    setTimeout(() => {
-      createComparisonChart();
-    }, 100);
-    
-    ElMessage.success('估算完成');
+    if(res.data.code === 200) {
+      result.value = res.data.data;
+      setTimeout(() => {
+        createComparisonChart();
+      }, 100);
+      ElMessage.success('估算完成');
+    } else {
+      ElMessage.error(res.data.message || '估算失败');
+    }
   } catch (error) {
     console.error('Error:', error);
-    ElMessage.error('估算失败: ' + (error.message || '未知错误'));
+    ElMessage.error('估算失败: ' + (error.response?.data?.message || error.message || '后端接口异常'));
   } finally {
     loading.value = false;
   }

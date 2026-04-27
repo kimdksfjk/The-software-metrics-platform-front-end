@@ -45,6 +45,16 @@
         <el-icon><Share /></el-icon>
         <span>流程图度量</span>
       </el-menu-item>
+      
+      <el-menu-item index="codeClone">
+        <el-icon><Share /></el-icon>
+        <span>代码重复率检测</span>
+      </el-menu-item>
+
+      <el-menu-item index="aiRefactor">
+        <el-icon><Share /></el-icon>
+        <span>AI重构</span>
+      </el-menu-item>
     </el-menu>
     
     <div class="user-section">
